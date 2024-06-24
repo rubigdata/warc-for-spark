@@ -7,12 +7,12 @@ import org.apache.spark.sql.types.StructType
 
 import scala.collection.mutable.ArrayBuffer
 
-class WarcScanBuilder(sparkSession: SparkSession, path: String, schema: StructType) extends ScanBuilder with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
+class WarcScanBuilder(sparkSession: SparkSession, options: WarcOptions, schema: StructType) extends ScanBuilder with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
 
   private var targetSchema: StructType = schema
   private val selectedPushFilters = new ArrayBuffer[Filter]()
 
-  override def build(): Scan = new WarcScan(sparkSession, path, targetSchema, pushedFilters())
+  override def build(): Scan = new WarcScan(sparkSession, options, targetSchema, pushedFilters())
 
   override def pushFilters(filters: Array[Filter]): Array[Filter] = {
     val (possible, impossible) = filters.partition(f => WarcPartitionReader.createFilterFunction(f).isDefined)

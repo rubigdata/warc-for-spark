@@ -1,7 +1,7 @@
 package org.rubigdata.warc
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{Path, RemoteIterator}
+import org.apache.hadoop.fs.{GlobPattern, Path, RemoteIterator}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReaderFactory, Scan}
 import org.apache.spark.sql.sources.Filter
@@ -10,7 +10,7 @@ import org.apache.spark.util.SerializableConfiguration
 
 import scala.language.implicitConversions
 
-class WarcScan(sparkSession: SparkSession, source: String, schema: StructType, filters: Array[Filter]) extends Scan with Batch {
+class WarcScan(sparkSession: SparkSession, options: WarcOptions, schema: StructType, filters: Array[Filter]) extends Scan with Batch {
 
   override def readSchema(): StructType = schema
 
@@ -19,10 +19,17 @@ class WarcScan(sparkSession: SparkSession, source: String, schema: StructType, f
   override def planInputPartitions(): Array[InputPartition] = {
     val conf: Configuration = sparkSession.sparkContext.hadoopConfiguration
 
-    val path = new Path(source)
+    val path = new Path(options.path)
     val fs = path.getFileSystem(conf)
 
-    fs.listFiles(path, true).map { fileStatus =>
+    val files = options.pathGlobFilter match {
+      case None => fs.listFiles(path, true).toIterator
+      case Some(pattern) =>
+        val globPattern = new GlobPattern(pattern)
+        fs.listFiles(path, true).filter(status => globPattern.matches(status.getPath.toString))
+    }
+
+    files.map { fileStatus =>
       WarcPartition(sparkSession.sparkContext.broadcast(new SerializableConfiguration(conf)), fileStatus)
     }.toArray
   }

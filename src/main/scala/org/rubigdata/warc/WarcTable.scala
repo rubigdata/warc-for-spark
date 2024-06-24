@@ -9,7 +9,7 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import java.util
 import scala.collection.JavaConverters.setAsJavaSetConverter
 
-class WarcTable(path: String, parseHTTP: Boolean) extends Table with SupportsRead {
+class WarcTable(options: WarcOptions) extends Table with SupportsRead {
 
   lazy val sparkSession: SparkSession = SparkSession.active
 
@@ -21,7 +21,7 @@ class WarcTable(path: String, parseHTTP: Boolean) extends Table with SupportsRea
 
   override def capabilities(): util.Set[TableCapability] = Set(TableCapability.BATCH_READ).asJava
 
-  override def newScanBuilder(options: CaseInsensitiveStringMap): ScanBuilder = new WarcScanBuilder(sparkSession, path, getSchema)
+  override def newScanBuilder(options: CaseInsensitiveStringMap): ScanBuilder = new WarcScanBuilder(sparkSession, this.options, getSchema)
 
   private def columnsFromSchema(schema: StructType): Array[Column] = {
     schema.fields.map(f => Column.create(f.name, f.dataType, f.nullable))
@@ -37,7 +37,7 @@ class WarcTable(path: String, parseHTTP: Boolean) extends Table with SupportsRea
       StructField("warc_headers", MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
     )
 
-    val additionalFields = if (parseHTTP) {
+    val additionalFields = if (options.parseHTTP) {
       Seq(
         StructField("http_headers", MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
         StructField("http_body", StringType, nullable = false)

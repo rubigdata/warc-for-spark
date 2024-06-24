@@ -6,6 +6,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 import java.util
+import scala.collection.JavaConverters.mapAsScalaMapConverter
 
 class DefaultSource extends TableProvider {
 
@@ -14,13 +15,7 @@ class DefaultSource extends TableProvider {
   }
 
   override def getTable(schema: StructType, partitioning: Array[Transform], properties: util.Map[String, String]): Table = {
-    val parseHTTP = properties.getOrDefault("parseHTTP", "false").toLowerCase match {
-      case "true" => true
-      case "false" => false
-      case _ => throw new IllegalArgumentException("parseHTTP must be a boolean")
-    }
-
-    new WarcTable(properties.get("path"), parseHTTP)
+    new WarcTable(WarcOptions.parse(properties.asScala.toMap))
   }
 
 }

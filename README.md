@@ -62,3 +62,12 @@ root
 ```
 
 Predicate pushdown is supported for columns `warc_id`, `warc_type`, `warc_target_uri`, `warc_date` and `content_type`.
+
+## Options
+
+The WARC input format supports the following read options:
+
+| Option name    | Type   | Description                                                                                                           |
+|----------------|--------|-----------------------------------------------------------------------------------------------------------------------|
+| parseHTTP      | bool   | Parses the WARC body as a HTTP response. Replaces the `warc_body` column with `http_headers` and `http_body` columns. |
+| pathGlobFilter | string | Read only files with file names matching the given glob pattern.                                                      |
