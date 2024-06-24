@@ -19,16 +19,16 @@ The resulting DataFrame will have the following schema:
 
 ```
 root
- |-- warc_id: string (nullable = false)
- |-- warc_type: string (nullable = false)
- |-- warc_target_uri: string (nullable = true)
- |-- warc_date: timestamp (nullable = false)
- |-- content_type: string (nullable = false)
- |-- warc_headers: map (nullable = false)
+ |-- warcId: string (nullable = false)
+ |-- warcType: string (nullable = false)
+ |-- warcTargetUri: string (nullable = true)
+ |-- warcDate: timestamp (nullable = false)
+ |-- contentType: string (nullable = false)
+ |-- warcHeaders: map (nullable = false)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
  |    |    |-- element: string (containsNull = false)
- |-- warc_body: string (nullable = false)
+ |-- warcBody: string (nullable = false)
 ```
 
 Similarly, if we want to parse the WARC record bodies as HTTP responses (for WARC records of type `response`), we can use:
@@ -45,29 +45,29 @@ This will result in a DataFrame with the following schema:
 
 ```
 root
- |-- warc_id: string (nullable = false)
- |-- warc_type: string (nullable = false)
- |-- warc_target_uri: string (nullable = true)
- |-- warc_date: timestamp (nullable = false)
- |-- content_type: string (nullable = false)
- |-- warc_headers: map (nullable = false)
+ |-- warcId: string (nullable = false)
+ |-- warcType: string (nullable = false)
+ |-- warcTargetUri: string (nullable = true)
+ |-- warcDate: timestamp (nullable = false)
+ |-- contentType: string (nullable = false)
+ |-- warcHeaders: map (nullable = false)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
  |    |    |-- element: string (containsNull = false)
- |-- http_headers: map (nullable = true)
+ |-- httpHeaders: map (nullable = false)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
  |    |    |-- element: string (containsNull = false)
- |-- http_body: string (nullable = true)
+ |-- httpBody: string (nullable = false)
 ```
 
-Predicate pushdown is supported for columns `warc_id`, `warc_type`, `warc_target_uri`, `warc_date` and `content_type`.
+Predicate pushdown is supported for columns `warcId`, `warcType`, `warcTargetUri`, `warcDate` and `contentType`.
 
 ## Options
 
 The WARC input format supports the following read options:
 
-| Option name    | Type   | Description                                                                                                           |
-|----------------|--------|-----------------------------------------------------------------------------------------------------------------------|
-| parseHTTP      | bool   | Parses the WARC body as a HTTP response. Replaces the `warc_body` column with `http_headers` and `http_body` columns. |
-| pathGlobFilter | string | Read only files with file names matching the given glob pattern.                                                      |
+| Option name    | Type   | Description                                                                                                        |
+|----------------|--------|--------------------------------------------------------------------------------------------------------------------|
+| parseHTTP      | bool   | Parses the WARC body as a HTTP response. Replaces the `warcBody` column with `httpHeaders` and `httpBody` columns. |
+| pathGlobFilter | string | Read only files with file names matching the given glob pattern.                                                   |

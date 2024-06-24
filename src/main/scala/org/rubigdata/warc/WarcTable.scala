@@ -9,6 +9,8 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import java.util
 import scala.collection.JavaConverters.setAsJavaSetConverter
 
+import WarcRow._
+
 class WarcTable(options: WarcOptions) extends Table with SupportsRead {
 
   lazy val sparkSession: SparkSession = SparkSession.active
@@ -29,21 +31,21 @@ class WarcTable(options: WarcOptions) extends Table with SupportsRead {
 
   def getSchema: StructType = {
     val defaultFields = Seq(
-      StructField("warc_id", StringType, nullable = false),
-      StructField("warc_type", StringType, nullable = false),
-      StructField("warc_target_uri", StringType, nullable = true),
-      StructField("warc_date", TimestampType, nullable = false),
-      StructField("content_type", StringType, nullable = false),
-      StructField("warc_headers", MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
+      StructField(WARC_ID, StringType, nullable = false),
+      StructField(WARC_TYPE, StringType, nullable = false),
+      StructField(WARC_TARGET_URI, StringType, nullable = true),
+      StructField(WARC_DATE, TimestampType, nullable = false),
+      StructField(CONTENT_TYPE, StringType, nullable = false),
+      StructField(WARC_HEADERS, MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
     )
 
     val additionalFields = if (options.parseHTTP) {
       Seq(
-        StructField("http_headers", MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
-        StructField("http_body", StringType, nullable = false)
+        StructField(HTTP_HEADERS, MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = true),
+        StructField(HTTP_BODY, StringType, nullable = true)
       )
     } else {
-      Seq(StructField("warc_body", StringType, nullable = false))
+      Seq(StructField(WARC_BODY, StringType, nullable = false))
     }
 
     StructType(defaultFields ++ additionalFields)
