@@ -34,7 +34,7 @@ class WarcScan(sparkSession: SparkSession, options: WarcOptions, schema: StructT
     }.toArray
   }
 
-  override def createReaderFactory(): PartitionReaderFactory = new WarcPartitionReaderFactory(schema, filters)
+  override def createReaderFactory(): PartitionReaderFactory = new WarcPartitionReaderFactory(options, schema, filters)
 
   /**
    * Turns a [[RemoteIterator]] into a regular Scala [[Iterator]].

@@ -10,13 +10,19 @@ import java.sql.Timestamp
 
 import WarcRow._
 
-class WarcPartitionReader(partition: WarcPartition, schema: StructType, filters: Array[Filter]) extends PartitionReader[InternalRow] {
+class WarcPartitionReader(partition: WarcPartition, options: WarcOptions, schema: StructType, filters: Array[Filter]) extends PartitionReader[InternalRow] {
 
   private val reader: WarcReader = {
     val path = partition.fileStatus.getPath
     val fs = path.getFileSystem(partition.conf.value.value)
 
-    new WarcReader(fs.open(path))
+    val reader = new WarcReader(fs.open(path))
+
+    if (options.lenient) {
+      reader.setLenient(true)
+    }
+
+    reader
   }
 
   private var record: Option[WarcRow] = None

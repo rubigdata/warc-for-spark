@@ -10,5 +10,5 @@ libraryDependencies ++= Seq(
   "org.apache.spark"     %% "spark-core"       % sparkV,
   "org.apache.spark"     %% "spark-sql"        % sparkV,
   "org.apache.hadoop"    %  "hadoop-client"    % hadoopV,
-  "org.netpreserve"      % "jwarc"             % "0.29.0"
+  "org.netpreserve"      % "jwarc"             % "0.30.0"
 )
