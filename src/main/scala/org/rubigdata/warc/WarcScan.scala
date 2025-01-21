@@ -29,8 +29,10 @@ class WarcScan(sparkSession: SparkSession, options: WarcOptions, schema: StructT
         fs.listFiles(path, true).filter(status => globPattern.matches(status.getPath.toString))
     }
 
+    val bcConf = sparkSession.sparkContext.broadcast(new SerializableConfiguration(conf))
+
     files.map { fileStatus =>
-      WarcPartition(sparkSession.sparkContext.broadcast(new SerializableConfiguration(conf)), fileStatus)
+      WarcPartition(bcConf, fileStatus)
     }.toArray
   }
 
