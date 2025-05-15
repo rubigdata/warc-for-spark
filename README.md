@@ -23,7 +23,7 @@ root
  |-- warcType: string (nullable = false)
  |-- warcTargetUri: string (nullable = true)
  |-- warcDate: timestamp (nullable = false)
- |-- contentType: string (nullable = false)
+ |-- warcContentType: string (nullable = false)
  |-- warcHeaders: map (nullable = false)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
@@ -49,19 +49,20 @@ root
  |-- warcType: string (nullable = false)
  |-- warcTargetUri: string (nullable = true)
  |-- warcDate: timestamp (nullable = false)
- |-- contentType: string (nullable = false)
+ |-- warcContentType: string (nullable = false)
  |-- warcHeaders: map (nullable = false)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
  |    |    |-- element: string (containsNull = false)
- |-- httpHeaders: map (nullable = false)
+ |-- httpContentType: string (nullable = true)
+ |-- httpHeaders: map (nullable = true)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
  |    |    |-- element: string (containsNull = false)
- |-- httpBody: string (nullable = false)
+ |-- httpBody: string (nullable = true)
 ```
 
-Predicate pushdown is supported for columns `warcId`, `warcType`, `warcTargetUri`, `warcDate` and `contentType`.
+Predicate pushdown is supported for columns `warcId`, `warcType`, `warcTargetUri`, `warcDate`, `warcContentType` and `httpContentType`.
 
 ## Options
 

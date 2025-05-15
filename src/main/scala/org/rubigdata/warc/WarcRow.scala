@@ -24,9 +24,13 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
     case _ => null
   }
   private lazy val warcDate = warcRecord.date()
-  private lazy val contentType = warcRecord.contentType().toString
+  private lazy val warcContentType = warcRecord.contentType().toString
   private lazy val warcHeaders = readHeaders(warcRecord.headers())
   private lazy val warcBody = readBody(warcRecord.body())
+  private lazy val httpContentType = warcRecord match {
+    case r: WarcResponse => r.http().contentType().toString
+    case _ => null
+  }
   private lazy val httpHeaders = warcRecord match {
     case r: WarcResponse => readHeaders(r.http().headers())
     case _ => null
@@ -45,9 +49,10 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
     case WARC_TYPE => warcType
     case WARC_TARGET_URI => warcTargetUri
     case WARC_DATE => warcDate
-    case CONTENT_TYPE => contentType
+    case WARC_CONTENT_TYPE => warcContentType
     case WARC_HEADERS => warcHeaders
     case WARC_BODY => warcBody
+    case HTTP_CONTENT_TYPE => httpContentType
     case HTTP_HEADERS => httpHeaders
     case HTTP_BODY => httpBody
     case _ => null
@@ -102,11 +107,12 @@ object WarcRow {
   val WARC_TYPE = "warcType"
   val WARC_TARGET_URI = "warcTargetUri"
   val WARC_DATE = "warcDate"
-  val CONTENT_TYPE = "contentType"
+  val WARC_CONTENT_TYPE = "warcContentType"
   val WARC_HEADERS = "warcHeaders"
   val WARC_BODY = "warcBody"
+  val HTTP_CONTENT_TYPE = "httpContentType"
   val HTTP_HEADERS = "httpHeaders"
   val HTTP_BODY = "httpBody"
 
-  val STRING_FIELDS: Seq[String] = Seq(WARC_ID, WARC_TYPE, WARC_TARGET_URI, CONTENT_TYPE)
+  val STRING_FIELDS: Seq[String] = Seq(WARC_ID, WARC_TYPE, WARC_TARGET_URI, WARC_CONTENT_TYPE, HTTP_CONTENT_TYPE)
 }

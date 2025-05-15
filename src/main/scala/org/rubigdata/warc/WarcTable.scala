@@ -35,12 +35,13 @@ class WarcTable(options: WarcOptions) extends Table with SupportsRead {
       StructField(WARC_TYPE, StringType, nullable = false),
       StructField(WARC_TARGET_URI, StringType, nullable = true),
       StructField(WARC_DATE, TimestampType, nullable = false),
-      StructField(CONTENT_TYPE, StringType, nullable = false),
+      StructField(WARC_CONTENT_TYPE, StringType, nullable = false),
       StructField(WARC_HEADERS, MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
     )
 
     val additionalFields = if (options.parseHTTP) {
       Seq(
+        StructField(HTTP_CONTENT_TYPE, StringType, nullable = true),
         StructField(HTTP_HEADERS, MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = true),
         StructField(HTTP_BODY, StringType, nullable = true)
       )
