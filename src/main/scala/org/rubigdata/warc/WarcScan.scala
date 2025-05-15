@@ -12,6 +12,25 @@ import scala.language.implicitConversions
 
 class WarcScan(sparkSession: SparkSession, options: WarcOptions, schema: StructType, filters: Array[Filter]) extends Scan with Batch {
 
+  override def description(): String = {
+    val buf = new StringBuilder(s"warc [${options.path}")
+
+    if (options.lenient)
+      buf ++= ", lenient"
+    if (options.parseHTTP)
+      buf ++= ", parseHTTP"
+    if (options.headersToLowerCase)
+      buf ++= ", headersToLowerCase"
+    options.pathGlobFilter.foreach{ glob =>
+      buf ++= s", pathGlobFilter = $glob"
+    }
+
+    val filterString = filters.mkString("[", ", ", "]")
+    buf ++= s"] PushedFilters: ${filterString}, ReadSchema: ${schema.simpleString}"
+
+    buf.toString()
+  }
+
   override def readSchema(): StructType = schema
 
   override def toBatch: Batch = this

@@ -15,7 +15,7 @@ class WarcTable(options: WarcOptions) extends Table with SupportsRead {
 
   lazy val sparkSession: SparkSession = SparkSession.active
 
-  override def name(): String = this.getClass.toString
+  override def name(): String = s"warc [${options.path}]"
 
   override def schema(): StructType = getSchema
 
