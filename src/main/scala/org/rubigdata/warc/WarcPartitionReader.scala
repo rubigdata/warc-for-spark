@@ -31,7 +31,7 @@ class WarcPartitionReader(partition: WarcPartition, options: WarcOptions, schema
 
   private def readRecord(): Unit = {
     val nextRecord = reader.next()
-    record = if (nextRecord.isPresent) Some(WarcRow(nextRecord.get)) else None
+    record = if (nextRecord.isPresent) Some(WarcRow(nextRecord.get, options)) else None
   }
 
   private def recordIsValid(record: WarcRow): Boolean = {

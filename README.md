@@ -67,8 +67,9 @@ Predicate pushdown is supported for columns `warcId`, `warcType`, `warcTargetUri
 
 The WARC input format supports the following read options:
 
-| Option name    | Type   | Description                                                                                                        |
-|----------------|--------|--------------------------------------------------------------------------------------------------------------------|
-| lenient        | bool   | Enables lenient WARC parsing (e.g. allowing invalid UTF-8)                                                         |
-| parseHTTP      | bool   | Parses the WARC body as a HTTP response. Replaces the `warcBody` column with `httpHeaders` and `httpBody` columns. |
-| pathGlobFilter | string | Read only files with file names matching the given glob pattern.                                                   |
+| Option name        | Type   | Description                                                                                                        |
+|--------------------|--------|--------------------------------------------------------------------------------------------------------------------|
+| lenient            | bool   | Enables lenient WARC parsing (e.g. allowing invalid UTF-8)                                                         |
+| parseHTTP          | bool   | Parses the WARC body as a HTTP response. Replaces the `warcBody` column with `httpHeaders` and `httpBody` columns. |
+| headersToLowerCase | bool   | Convert all WARC and HTTP header keys to lowercase.                                                                |
+| pathGlobFilter     | string | Read only files with file names matching the given glob pattern.                                                   |

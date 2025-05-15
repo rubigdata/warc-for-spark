@@ -13,7 +13,7 @@ import java.time.Instant
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
-case class WarcRow(warcRecord: WarcRecord) {
+case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
 
   import org.rubigdata.warc.WarcRow._
 
@@ -75,7 +75,13 @@ case class WarcRow(warcRecord: WarcRecord) {
   }
 
   private def readHeaders(headers: MessageHeaders): Map[String, List[String]] = {
-    headers.map().asScala.toMap.mapValues(_.asScala.toList)
+    val parsedHeaders = headers.map().asScala.toMap.mapValues(_.asScala.toList)
+
+    if (options.headersToLowerCase) {
+      parsedHeaders.map{ case (k, v) => (k.toLowerCase, v) }
+    } else {
+      parsedHeaders
+    }
   }
 
   private def parseRecordHeaders(headers: Map[String, List[String]]): ArrayBasedMapData = {
