@@ -2,7 +2,7 @@ package org.rubigdata.warc
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.read.PartitionReader
-import org.apache.spark.sql.sources.{And, EqualTo, Filter, GreaterThan, GreaterThanOrEqual, IsNotNull, IsNull, LessThan, LessThanOrEqual, Not, Or, StringContains, StringEndsWith, StringStartsWith}
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.netpreserve.jwarc.WarcReader
 
@@ -11,6 +11,8 @@ import java.sql.Timestamp
 import WarcRow._
 
 class WarcPartitionReader(partition: WarcPartition, options: WarcOptions, schema: StructType, filters: Array[Filter]) extends PartitionReader[InternalRow] {
+
+  private val filename = partition.fileStatus.getPath.toString
 
   private val reader: WarcReader = {
     val path = partition.fileStatus.getPath
@@ -27,11 +29,11 @@ class WarcPartitionReader(partition: WarcPartition, options: WarcOptions, schema
 
   private var record: Option[WarcRow] = None
 
-  private val filterFuncs = filters.flatMap(WarcPartitionReader.createFilterFunction)
+  private val filterFuncs = filters.flatMap(WarcPartitionReader.createRowFilterFunction)
 
   private def readRecord(): Unit = {
     val nextRecord = reader.next()
-    record = if (nextRecord.isPresent) Some(WarcRow(nextRecord.get, options)) else None
+    record = if (nextRecord.isPresent) Some(WarcRow(filename, nextRecord.get, options)) else None
   }
 
   private def recordIsValid(record: WarcRow): Boolean = {
@@ -60,21 +62,19 @@ class WarcPartitionReader(partition: WarcPartition, options: WarcOptions, schema
 }
 
 object WarcPartitionReader {
-  def createFilterFunction(filter: Filter): Option[WarcRow => Boolean] = {
+  def createRowFilterFunction(filter: Filter): Option[WarcRow => Boolean] = {
     filter match {
-      case And(left, right) => (createFilterFunction(left), createFilterFunction(right)) match {
+      case And(left, right) => (createRowFilterFunction(left), createRowFilterFunction(right)) match {
         case (Some(leftPred), Some(rightPred)) => Some(s => leftPred(s) && rightPred(s))
-        case (Some(leftPred), None) => Some(leftPred)
-        case (None, Some(rightPred)) => Some(rightPred)
-        case (None, None) => Some(_ => true)
+        case _ => None
       }
-      case Or(left, right) => (createFilterFunction(left), createFilterFunction(right)) match {
+      case Or(left, right) => (createRowFilterFunction(left), createRowFilterFunction(right)) match {
         case (Some(leftPred), Some(rightPred)) => Some(s => leftPred(s) || rightPred(s))
-        case _ => Some(_ => true)
+        case _ => None
       }
-      case Not(child) => createFilterFunction(child) match {
+      case Not(child) => createRowFilterFunction(child) match {
         case Some(pred) => Some(s => !pred(s))
-        case _ => Some(_ => true)
+        case _ => None
       }
       case IsNull(attribute) => Some(r => r.readField(attribute) == null)
       case IsNotNull(attribute) => Some(r => r.readField(attribute) != null)
@@ -96,6 +96,32 @@ object WarcPartitionReader {
         Some(r => r.getDate.getTime >= value.getTime)
       case EqualTo(WARC_DATE, value: Timestamp) =>
         Some(r => r.getDate.equals(value))
+      case _ => None
+    }
+  }
+
+  def createPartitionFilterFunction(filter: Filter): Option[WarcPartition => Boolean] = {
+    filter match {
+      case And(left, right) => (createPartitionFilterFunction(left), createPartitionFilterFunction(right)) match {
+        case (Some(leftPred), Some(rightPred)) => Some(s => leftPred(s) && rightPred(s))
+        case _ => None
+      }
+      case Or(left, right) => (createPartitionFilterFunction(left), createPartitionFilterFunction(right)) match {
+        case (Some(leftPred), Some(rightPred)) => Some(s => leftPred(s) || rightPred(s))
+        case _ => None
+      }
+      case Not(child) => createPartitionFilterFunction(child) match {
+        case Some(pred) => Some(s => !pred(s))
+        case _ => None
+      }
+      case EqualTo("filename", value: String) =>
+        Some(p => p.fileStatus.getPath.toString.equals(value))
+      case StringStartsWith("filename", value: String) =>
+        Some(p => p.fileStatus.getPath.toString.startsWith(value))
+      case StringEndsWith("filename", value: String) =>
+        Some(p => p.fileStatus.getPath.toString.endsWith(value))
+      case StringContains("filename", value: String) =>
+        Some(p => p.fileStatus.getPath.toString.contains(value))
       case _ => None
     }
   }

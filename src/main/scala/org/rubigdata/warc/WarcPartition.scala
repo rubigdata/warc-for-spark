@@ -2,12 +2,17 @@ package org.rubigdata.warc
 
 import org.apache.hadoop.fs.LocatedFileStatus
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.sql.connector.read.InputPartition
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.connector.read.{InputPartition, HasPartitionKey, SupportsPushDownLimit}
 import org.apache.spark.util.SerializableConfiguration
+import org.apache.spark.unsafe.types.UTF8String
 
 import scala.collection.mutable
 
-case class WarcPartition(conf: Broadcast[SerializableConfiguration], fileStatus: LocatedFileStatus) extends InputPartition {
+case class WarcPartition(conf: Broadcast[SerializableConfiguration], fileStatus: LocatedFileStatus)
+  extends InputPartition with HasPartitionKey {
+
+  override def partitionKey(): InternalRow = InternalRow(UTF8String.fromString(fileStatus.getPath.toString))
 
   override def preferredLocations(): Array[String] = {
     // Compute how many bytes of this file each host has

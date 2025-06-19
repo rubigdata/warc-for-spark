@@ -13,7 +13,7 @@ import java.time.Instant
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
-case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
+case class WarcRow(filename: String, warcRecord: WarcRecord, options: WarcOptions) {
 
   import org.rubigdata.warc.WarcRow._
 
@@ -45,6 +45,7 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
   }
 
   def readField(field: String): Any = field match {
+    case WARC_FILENAME => filename
     case WARC_ID => warcId
     case WARC_TYPE => warcType
     case WARC_TARGET_URI => warcTargetUri
@@ -61,6 +62,7 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
   def readString(field: String): String = {
     readField(field) match {
       case s: String => s
+      case null => null
       case _ => throw new IllegalArgumentException(s"Field $field is not a string field")
     }
   }
@@ -103,6 +105,7 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
 }
 
 object WarcRow {
+  val WARC_FILENAME = "filename"
   val WARC_ID = "warcId"
   val WARC_TYPE = "warcType"
   val WARC_TARGET_URI = "warcTargetUri"

@@ -4,6 +4,7 @@ case class WarcOptions(
   path: String,
   parseHTTP: Boolean = false,
   lenient: Boolean = false,
+  filename: Boolean = false,
   headersToLowerCase: Boolean = false,
   pathGlobFilter: Option[String] = None,
 )
@@ -17,10 +18,11 @@ object WarcOptions {
 
     val parseHTTP = parseBoolean(properties, "parseHTTP")
     val lenient = parseBoolean(properties, "lenient")
+    val filename = parseBoolean(properties, "filename")
     val headersToLowerCase = parseBoolean(properties, "headersToLowerCase")
     val pathGlobFilter = properties.get("pathGlobFilter")
 
-    WarcOptions(path, parseHTTP, lenient, headersToLowerCase, pathGlobFilter)
+    WarcOptions(path, parseHTTP, lenient, filename, headersToLowerCase, pathGlobFilter)
   }
 
   private def parseBoolean(properties: Map[String, String], propertyName: String, default: Boolean = false): Boolean = {

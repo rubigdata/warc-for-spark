@@ -30,7 +30,7 @@ class WarcTable(options: WarcOptions) extends Table with SupportsRead {
   }
 
   def getSchema: StructType = {
-    val defaultFields = Seq(
+    var fields = Seq(
       StructField(WARC_ID, StringType, nullable = false),
       StructField(WARC_TYPE, StringType, nullable = false),
       StructField(WARC_TARGET_URI, StringType, nullable = true),
@@ -39,17 +39,21 @@ class WarcTable(options: WarcOptions) extends Table with SupportsRead {
       StructField(WARC_HEADERS, MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
     )
 
-    val additionalFields = if (options.parseHTTP) {
-      Seq(
+    if (options.parseHTTP) {
+      fields ++= Seq(
         StructField(HTTP_CONTENT_TYPE, StringType, nullable = true),
         StructField(HTTP_HEADERS, MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = true),
         StructField(HTTP_BODY, StringType, nullable = true)
       )
     } else {
-      Seq(StructField(WARC_BODY, StringType, nullable = false))
+      fields ++= Seq(StructField(WARC_BODY, StringType, nullable = false))
     }
 
-    StructType(defaultFields ++ additionalFields)
+    if (options.filename) {
+      fields = StructField(WARC_FILENAME, StringType, nullable = false) +: fields
+    }
+
+    StructType(fields)
   }
 
 }
