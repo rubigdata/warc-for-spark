@@ -1,21 +1,29 @@
 package org.rubigdata.warc
 
-import org.apache.spark.sql.connector.catalog.{Table, TableProvider}
-import org.apache.spark.sql.connector.expressions.Transform
+import org.apache.spark.sql.connector.catalog.Table
+import org.apache.spark.sql.execution.datasources.FileFormat
+import org.apache.spark.sql.execution.datasources.v2.FileDataSourceV2
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
-import java.util
-import scala.collection.JavaConverters.mapAsScalaMapConverter
+class DefaultSource extends FileDataSourceV2 {
 
-class DefaultSource extends TableProvider {
+  override def fallbackFileFormat: Class[_ <: FileFormat] =
+    throw new NotImplementedError("This file format does not support a fallback V1 file format")
 
-  override def inferSchema(options: CaseInsensitiveStringMap): StructType = {
-    getTable(null, Array.empty, options.asCaseSensitiveMap()).asInstanceOf[WarcTable].getSchema
+  override def shortName(): String = "warc"
+
+  override def getTable(options: CaseInsensitiveStringMap): Table = {
+    val paths = getPaths(options)
+    val tableName = getTableName(options, paths)
+    val optionsWithoutPaths = getOptionsWithoutPaths(options)
+    WarcTable(tableName, sparkSession, optionsWithoutPaths, paths, None)
   }
 
-  override def getTable(schema: StructType, partitioning: Array[Transform], properties: util.Map[String, String]): Table = {
-    new WarcTable(WarcOptions.parse(properties.asScala.toMap))
+  override def getTable(options: CaseInsensitiveStringMap, schema: StructType): Table = {
+    val paths = getPaths(options)
+    val tableName = getTableName(options, paths)
+    val optionsWithoutPaths = getOptionsWithoutPaths(options)
+    WarcTable(tableName, sparkSession, optionsWithoutPaths, paths, Some(schema))
   }
-
 }

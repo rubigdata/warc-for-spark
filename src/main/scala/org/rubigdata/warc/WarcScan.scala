@@ -1,95 +1,71 @@
 package org.rubigdata.warc
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{GlobPattern, Path, RemoteIterator}
+import scala.collection.JavaConverters._
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.io.compress.{CompressionCodecFactory, GzipCodec}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReaderFactory, Scan, SupportsReportPartitioning}
-import org.apache.spark.sql.connector.expressions.Expressions
-import org.apache.spark.sql.connector.read.partitioning.{Partitioning, KeyGroupedPartitioning, UnknownPartitioning}
+import org.apache.spark.sql.catalyst.expressions.{ExprUtils, Expression}
+import org.apache.spark.sql.connector.read.PartitionReaderFactory
+import org.apache.spark.sql.execution.datasources.PartitioningAwareFileIndex
+import org.apache.spark.sql.execution.datasources.v2.TextBasedFileScan
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import org.apache.spark.util.SerializableConfiguration
 
-import scala.language.implicitConversions
+case class WarcScan(
+                    sparkSession: SparkSession,
+                    fileIndex: PartitioningAwareFileIndex,
+                    dataSchema: StructType,
+                    readDataSchema: StructType,
+                    readPartitionSchema: StructType,
+                    options: CaseInsensitiveStringMap,
+                    pushedFilters: Array[Filter],
+                    partitionFilters: Seq[Expression] = Seq.empty,
+                    dataFilters: Seq[Expression] = Seq.empty)
+  extends TextBasedFileScan(sparkSession, options) {
 
-class WarcScan(sparkSession: SparkSession, options: WarcOptions, schema: StructType, partitionFilters: Array[Filter], rowFilters: Array[Filter]) extends Scan
-  with Batch with SupportsReportPartitioning {
+  @transient private lazy val codecFactory: CompressionCodecFactory = new CompressionCodecFactory(
+    sparkSession.sessionState.newHadoopConfWithOptions(options.asScala.toMap))
 
-  override def description(): String = {
-    val buf = new StringBuilder(s"warc [${options.path}")
+  override def isSplitable(path: Path): Boolean = {
+    val codec = codecFactory.getCodec(path)
+    val parsedOptions = new WarcOptions(options.asScala.toMap)
 
-    if (options.lenient)
-      buf ++= ", lenient"
-    if (options.parseHTTP)
-      buf ++= ", parseHTTP"
-    if (options.filename)
-      buf ++= ", filename"
-    if (options.headersToLowerCase)
-      buf ++= ", headersToLowerCase"
-    options.pathGlobFilter.foreach{ glob =>
-      buf ++= s", pathGlobFilter = $glob"
-    }
-
-    val partitionFiltersString = partitionFilters.mkString("[", ", ", "]")
-    val pushedFiltersString = rowFilters.mkString("[", ", ", "]")
-    val partitioningString = if (options.filename) s"[filename, ${partitions.length}]" else s"[${partitions.length}]"
-    buf ++= s"], PartitionFilters: ${partitionFiltersString}, PushedFilters: ${pushedFiltersString}, Partitioning: ${partitioningString}, ReadSchema: ${schema.simpleString}"
-
-    buf.toString()
+    codec == null || codec.isInstanceOf[GzipCodec] && parsedOptions.splitGzip
   }
 
-  override def readSchema(): StructType = schema
+  override def getFileUnSplittableReason(path: Path): String = {
+    assert(!isSplitable(path))
 
-  override def toBatch: Batch = this
+    val codec = codecFactory.getCodec(path)
 
-  private val conf = sparkSession.sparkContext.hadoopConfiguration
-
-  private lazy val files = {
-    val path = new Path(options.path)
-    val fs = path.getFileSystem(conf)
-
-    options.pathGlobFilter match {
-      case None => fs.listFiles(path, true).toSeq
-      case Some(pattern) =>
-        val globPattern = new GlobPattern(pattern)
-        fs.listFiles(path, true).filter(status => globPattern.matches(status.getPath.toString)).toSeq
-    }
-  }
-
-  private lazy val partitions: Array[InputPartition] = {
-    val bcConf = sparkSession.sparkContext.broadcast(new SerializableConfiguration(conf))
-    val filters = partitionFilters.flatMap(WarcPartitionReader.createPartitionFilterFunction)
-
-    files.map { fileStatus =>
-      WarcPartition(bcConf, fileStatus)
-    }.filter { partition =>
-      filters.forall(_.apply(partition))
-    }.toArray
-  }
-
-  override def planInputPartitions(): Array[InputPartition] = partitions
-
-  override def outputPartitioning(): Partitioning = {
-    if (options.filename) {
-      new KeyGroupedPartitioning(Array(Expressions.column("filename")), files.length)
+    if (codec.isInstanceOf[GzipCodec]) {
+      "the splitGzip option is not enabled"
     } else {
-      new UnknownPartitioning(files.length)
+      s"file splitting is not supported for ${codec.getClass.getSimpleName}"
     }
   }
 
-  override def createReaderFactory(): PartitionReaderFactory = new WarcPartitionReaderFactory(options, schema, rowFilters)
+  override def createReaderFactory(): PartitionReaderFactory = {
+    val caseSensitiveMap = options.asCaseSensitiveMap.asScala.toMap
+    val hadoopConf = sparkSession.sessionState.newHadoopConfWithOptions(caseSensitiveMap)
+    val broadcastedConf = sparkSession.sparkContext.broadcast(
+      new SerializableConfiguration(hadoopConf))
+    val parsedOptions = new WarcOptions(options.asScala.toMap)
 
-  /**
-   * Turns a [[RemoteIterator]] into a regular Scala [[Iterator]].
-   *
-   * @param ri the [[RemoteIterator]] to wrap
-   * @tparam A the underlying type of the iterator
-   * @return a Scala [[Iterator]], wrapping the input [[RemoteIterator]]
-   */
-  private implicit def remoteIteratorToIterator[A](ri: RemoteIterator[A]): Iterator[A] = new Iterator[A] {
-    override def hasNext: Boolean = ri.hasNext
-
-    override def next(): A = ri.next()
+    WarcPartitionReaderFactory(broadcastedConf, readDataSchema, readPartitionSchema, parsedOptions, pushedFilters)
   }
 
+  override def equals(obj: Any): Boolean = obj match {
+    case c: WarcScan => super.equals(c) && dataSchema == c.dataSchema && options == c.options &&
+      equivalentFilters(pushedFilters, c.pushedFilters)
+    case _ => false
+  }
+
+  override def hashCode(): Int = super.hashCode()
+
+  override def getMetaData(): Map[String, String] = {
+    super.getMetaData() ++ Map("PushedFilters" -> seqToString(pushedFilters))
+  }
 }

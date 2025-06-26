@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, ArrayData}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.unsafe.types.UTF8String
-import org.netpreserve.jwarc.{MessageBody, MessageHeaders, WarcRecord, WarcResponse, WarcTargetRecord}
+import org.netpreserve.jwarc._
 
 import java.io.DataInputStream
 import java.sql.Timestamp
@@ -13,9 +13,9 @@ import java.time.Instant
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
-case class WarcRow(filename: String, warcRecord: WarcRecord, options: WarcOptions) {
+case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
 
-  import org.rubigdata.warc.WarcRow._
+  import WarcRow._
 
   private lazy val warcId = warcRecord.id().toString
   private lazy val warcType = warcRecord.`type`()
@@ -45,7 +45,6 @@ case class WarcRow(filename: String, warcRecord: WarcRecord, options: WarcOption
   }
 
   def readField(field: String): Any = field match {
-    case WARC_FILENAME => filename
     case WARC_ID => warcId
     case WARC_TYPE => warcType
     case WARC_TARGET_URI => warcTargetUri
@@ -105,7 +104,6 @@ case class WarcRow(filename: String, warcRecord: WarcRecord, options: WarcOption
 }
 
 object WarcRow {
-  val WARC_FILENAME = "filename"
   val WARC_ID = "warcId"
   val WARC_TYPE = "warcType"
   val WARC_TARGET_URI = "warcTargetUri"

@@ -1,37 +1,43 @@
 package org.rubigdata.warc
 
-case class WarcOptions(
-  path: String,
-  parseHTTP: Boolean = false,
-  lenient: Boolean = false,
-  filename: Boolean = false,
-  headersToLowerCase: Boolean = false,
-  pathGlobFilter: Option[String] = None,
-)
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.{DataSourceOptions, FileSourceOptions}
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
-object WarcOptions {
-  def parse(properties: Map[String, String]): WarcOptions = {
-    val path: String = properties.get("path") match {
-      case Some(p) => p
-      case None => throw new IllegalArgumentException("Property 'path' is required")
-    }
+import java.util.Locale
 
-    val parseHTTP = parseBoolean(properties, "parseHTTP")
-    val lenient = parseBoolean(properties, "lenient")
-    val filename = parseBoolean(properties, "filename")
-    val headersToLowerCase = parseBoolean(properties, "headersToLowerCase")
-    val pathGlobFilter = properties.get("pathGlobFilter")
+class WarcOptions(@transient val parameters: CaseInsensitiveMap[String])
+  extends FileSourceOptions(parameters) with Logging {
 
-    WarcOptions(path, parseHTTP, lenient, filename, headersToLowerCase, pathGlobFilter)
+  import WarcOptions._
+
+  def this(parameters: Map[String, String]) = {
+    this(CaseInsensitiveMap(parameters))
   }
 
-  private def parseBoolean(properties: Map[String, String], propertyName: String, default: Boolean = false): Boolean = {
-    properties.get(propertyName).map(_.toLowerCase) match {
-      case Some("true") => true
-      case Some("false") => false
-      case None => default
-      case _ => throw new IllegalArgumentException(s"Property '$propertyName' must be a boolean")
+  private def getBool(paramName: String, default: Boolean = false): Boolean = {
+    val param = parameters.getOrElse(paramName, default.toString)
+    if (param == null) {
+      default
+    } else if (param.toLowerCase(Locale.ROOT) == "true") {
+      true
+    } else if (param.toLowerCase(Locale.ROOT) == "false") {
+      false
+    } else {
+      throw new IllegalArgumentException(s"Parameter '$paramName' must be a boolean")
     }
   }
 
+  val parseHTTP: Boolean = getBool(PARSE_HTTP)
+  val lenient: Boolean = getBool(LENIENT)
+  val headersToLowerCase: Boolean = getBool(HEADERS_TO_LOWER_CASE)
+  val splitGzip: Boolean = getBool(SPLIT_GZIP)
+
+}
+
+object WarcOptions extends DataSourceOptions {
+  private val PARSE_HTTP: String = newOption("parseHTTP")
+  private val LENIENT: String = newOption("lenient")
+  private val HEADERS_TO_LOWER_CASE: String = newOption("headersToLowerCase")
+  private val SPLIT_GZIP: String = newOption("splitGzip")
 }

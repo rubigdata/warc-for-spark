@@ -13,7 +13,7 @@ val df = spark
   .read
   .format("org.rubigdata.warc")
   .load(input)
-``` 
+```
 
 The resulting DataFrame will have the following schema:
 
@@ -68,13 +68,14 @@ Predicate pushdown is supported for columns `warcId`, `warcType`, `warcTargetUri
 
 The WARC input format supports the following read options:
 
-| Option name        | Type   | Description                                                                                                        |
-|--------------------|--------|--------------------------------------------------------------------------------------------------------------------|
-| lenient            | bool   | Enables lenient WARC parsing (e.g. allowing invalid UTF-8)                                                         |
-| parseHTTP          | bool   | Parses the WARC body as a HTTP response. Replaces the `warcBody` column with `httpHeaders` and `httpBody` columns. |
-| headersToLowerCase | bool   | Convert all WARC and HTTP header keys to lowercase.                                                                |
-| filename           | bool   | Adds a `filename` column to the DataFrame.                                                                         |
-| pathGlobFilter     | string | Read only files with file names matching the given glob pattern.                                                   |
+| Option name        | Type   | Description                                                                                                                              |
+|--------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------|
+| headersToLowerCase | bool   | Convert all WARC and HTTP header keys to lowercase.                                                                                      |
+| lenient            | bool   | Enables lenient WARC parsing (e.g. allowing invalid UTF-8)                                                                               |
+| parseHTTP          | bool   | Parses the WARC body as a HTTP response. Replaces the `warcBody` column with `httpContent`, `httpHeaders` and `httpBody` columns.        |
+| splitGzip          | bool   | Treat Gzip files as a concatenation of many smaller Gzipped WARC records, meaning Spark can split each file into many smaller partitions |
+
+It also supports the [generic file source options](https://spark.apache.org/docs/latest/sql-data-sources-generic-options.html), and can read Hive-partitioned paths like any other file-based data source.
 
 ## Examples
 
