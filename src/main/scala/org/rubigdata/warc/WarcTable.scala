@@ -30,7 +30,7 @@ case class WarcTable(
       StructField(WARC_TYPE, StringType, nullable = false),
       StructField(WARC_TARGET_URI, StringType, nullable = true),
       StructField(WARC_DATE, TimestampType, nullable = false),
-      StructField(WARC_CONTENT_TYPE, StringType, nullable = false),
+      StructField(WARC_CONTENT_TYPE, StringType, nullable = true),
       StructField(WARC_HEADERS, MapType(StringType, ArrayType(StringType, containsNull = false), valueContainsNull = false), nullable = false),
     )
 

@@ -23,7 +23,7 @@ root
  |-- warcType: string (nullable = false)
  |-- warcTargetUri: string (nullable = true)
  |-- warcDate: timestamp (nullable = false)
- |-- warcContentType: string (nullable = false)
+ |-- warcContentType: string (nullable = true)
  |-- warcHeaders: map (nullable = false)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
@@ -49,7 +49,7 @@ root
  |-- warcType: string (nullable = false)
  |-- warcTargetUri: string (nullable = true)
  |-- warcDate: timestamp (nullable = false)
- |-- warcContentType: string (nullable = false)
+ |-- warcContentType: string (nullable = true)
  |-- warcHeaders: map (nullable = false)
  |    |-- key: string
  |    |-- value: array (valueContainsNull = false)
@@ -68,12 +68,13 @@ Predicate pushdown is supported for columns `warcId`, `warcType`, `warcTargetUri
 
 The WARC input format supports the following read options:
 
-| Option name        | Type   | Description                                                                                                                              |
-|--------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------|
-| headersToLowerCase | bool   | Convert all WARC and HTTP header keys to lowercase.                                                                                      |
-| lenient            | bool   | Enables lenient WARC parsing (e.g. allowing invalid UTF-8)                                                                               |
-| parseHTTP          | bool   | Parses the WARC body as a HTTP response. Replaces the `warcBody` column with `httpContent`, `httpHeaders` and `httpBody` columns.        |
-| splitGzip          | bool   | Treat Gzip files as a concatenation of many smaller Gzipped WARC records, meaning Spark can split each file into many smaller partitions |
+| Option name        | Type   | Description                                                                                                                               |
+|--------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| headersToLowerCase | bool   | Convert all WARC and HTTP header keys to lowercase.                                                                                       |
+| lenient            | bool   | Enables lenient WARC parsing (e.g. allowing invalid UTF-8).                                                                               |
+| parseHTTP          | bool   | Parses the WARC body as a HTTP response. Replaces the `warcBody` column with `httpContent`, `httpHeaders` and `httpBody` columns.         |
+| rawContentTypes    | bool   | Returns the raw `Content-Type` headers instead of trying to parse them and returning `null` if they cannot be parsed.                     |
+| splitGzip          | bool   | Treat Gzip files as a concatenation of many smaller Gzipped WARC records, meaning Spark can split each file into many smaller partitions. |
 
 It also supports the [generic file source options](https://spark.apache.org/docs/latest/sql-data-sources-generic-options.html), and can read Hive-partitioned paths like any other file-based data source.
 

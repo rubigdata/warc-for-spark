@@ -12,6 +12,7 @@ import java.sql.Timestamp
 import java.time.Instant
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
+import scala.util.Try
 
 case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
 
@@ -24,11 +25,11 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
     case _ => null
   }
   private lazy val warcDate = warcRecord.date()
-  private lazy val warcContentType = warcRecord.contentType().toString
+  private lazy val warcContentType = parseContentType(warcRecord)
   private lazy val warcHeaders = readHeaders(warcRecord.headers())
   private lazy val warcBody = readBody(warcRecord.body())
   private lazy val httpContentType = warcRecord match {
-    case r: WarcResponse => r.http().contentType().toString
+    case r: WarcResponse => parseContentType(r.http())
     case _ => null
   }
   private lazy val httpHeaders = warcRecord match {
@@ -74,6 +75,14 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
     case m: Map[_, _] => parseRecordHeaders(m.asInstanceOf[Map[String, List[String]]])
     case i: Instant => i.toEpochMilli * 1000L
     case _ => value
+  }
+
+  private def parseContentType(message: Message): String = {
+    if (options.rawContentTypes) {
+      message.headers().first("Content-Type").orElse(null)
+    } else {
+      Try(message.contentType().toString).getOrElse(null)
+    }
   }
 
   private def readBody(body: MessageBody): Array[Byte] = {
