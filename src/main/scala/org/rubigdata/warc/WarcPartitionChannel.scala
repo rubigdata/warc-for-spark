@@ -19,7 +19,10 @@ class WarcPartitionChannel[T <: InputStream with Seekable](in: T, start: Long, e
     if (in.getPos >= end) {
       -1
     } else {
-      byteBuffer.limit(byteBuffer.capacity() min (end - in.getPos).toInt)
+      val remaining = end - in.getPos
+      if (remaining < byteBuffer.capacity()) {
+        byteBuffer.limit(remaining.toInt)
+      }
       channel.read(byteBuffer)
     }
   }

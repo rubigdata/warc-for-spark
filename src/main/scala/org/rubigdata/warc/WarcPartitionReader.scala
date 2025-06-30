@@ -7,45 +7,31 @@ import org.apache.spark.sql.connector.read.PartitionReader
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
-import org.netpreserve.jwarc.WarcReader
+import org.netpreserve.jwarc.{WarcReader => JwarcReader, WarcRecord => JwarcRecord}
+import org.jwat.warc.{WarcReaderFactory, WarcReader => JwatReader, WarcRecord => JwatRecord}
 
+import scala.collection.JavaConverters._
+import java.io.Closeable
 import java.nio.channels.Channels
 import java.sql.Timestamp
 
-class WarcPartitionReader(conf: Configuration, file: PartitionedFile, options: WarcOptions, schema: StructType, filters: Seq[Filter]) extends PartitionReader[InternalRow] {
+abstract class WarcPartitionReader[R](schema: StructType, filters: Seq[Filter]) extends PartitionReader[InternalRow] {
 
-  private val channel = {
-    val path = file.toPath
-    val fs = path.getFileSystem(conf)
-    val in = fs.open(path)
+  def createReader: java.lang.Iterable[R] with Closeable
+  def toRow(record: R): WarcRow
 
-    new CompressionCodecFactory(conf).getCodec(path) match {
-      case null =>
-        WarcPartitionChannel.fromUncompressed(in, file.start, file.start + file.length)
-      case codec: GzipCodec if options.splitGzip =>
-        WarcPartitionChannel.fromGzip(codec, in, file.start, file.start + file.length)
-      case codec =>
-        Channels.newChannel(codec.createInputStream(in))
-    }
-  }
-
-  private val reader: WarcReader = {
-    val reader = new WarcReader(channel)
-
-    if (options.lenient) {
-      reader.setLenient(true)
-    }
-
-    reader
-  }
-
+  private val reader = createReader
+  private val iterator = reader.iterator().asScala
   private var record: Option[WarcRow] = None
 
   private val filterFuncs = filters.flatMap(WarcPartitionReader.createFilterFunction)
 
   private def readRecord(): Unit = {
-    val nextRecord = reader.next()
-    record = if (nextRecord.isPresent) Some(WarcRow(nextRecord.get, options)) else None
+    record = if (iterator.hasNext) {
+      Some(toRow(iterator.next()))
+    } else {
+      None
+    }
   }
 
   private def recordIsValid(record: WarcRow): Boolean = {
@@ -113,4 +99,60 @@ object WarcPartitionReader {
       case _ => None
     }
   }
+}
+
+class JwarcPartitionReader(conf: Configuration, file: PartitionedFile, options: WarcOptions, schema: StructType, filters: Seq[Filter])
+  extends WarcPartitionReader[JwarcRecord](schema, filters) {
+
+  override def createReader: JwarcReader = {
+    val channel = {
+      val path = file.toPath
+      val fs = path.getFileSystem(conf)
+      val in = fs.open(path)
+
+      new CompressionCodecFactory(conf).getCodec(path) match {
+        case null =>
+          WarcPartitionChannel.fromUncompressed(in, file.start, file.start + file.length)
+        case codec: GzipCodec if options.splitGzip =>
+          WarcPartitionChannel.fromGzip(codec, in, file.start, file.start + file.length)
+        case codec =>
+          Channels.newChannel(codec.createInputStream(in))
+      }
+    }
+
+    val reader = new JwarcReader(channel)
+
+    if (options.lenient) {
+      reader.setLenient(true)
+    }
+
+    reader
+  }
+
+  override def toRow(record: JwarcRecord): WarcRow = JwarcRow(record, options)
+}
+
+class JwatPartitionReader(conf: Configuration, file: PartitionedFile, options: WarcOptions, schema: StructType, filters: Seq[Filter])
+  extends WarcPartitionReader[JwatRecord](schema, filters) {
+
+  override def createReader: JwatReader = {
+    val in = {
+      val path = file.toPath
+      val fs = path.getFileSystem(conf)
+      val in = fs.open(path)
+
+      new CompressionCodecFactory(conf).getCodec(path) match {
+        case null =>
+          Channels.newInputStream(WarcPartitionChannel.fromUncompressed(in, file.start, file.start + file.length))
+        case codec: GzipCodec if options.splitGzip =>
+          Channels.newInputStream(WarcPartitionChannel.fromGzip(codec, in, file.start, file.start + file.length))
+        case codec =>
+          codec.createInputStream(in)
+      }
+    }
+
+    WarcReaderFactory.getReader(in)
+  }
+
+  override def toRow(record: JwatRecord): WarcRow = JwatRow(record, options)
 }

@@ -25,7 +25,12 @@ case class WarcPartitionReaderFactory(broadcastedConf: Broadcast[SerializableCon
 
   override def buildReader(file: PartitionedFile): PartitionReader[InternalRow] = {
     val conf = broadcastedConf.value.value
-    val fileReader = new WarcPartitionReader(conf, file, options, readDataSchema, filters)
+    val fileReader = options.parser match {
+      case "jwarc" => new JwarcPartitionReader(conf, file, options, readDataSchema, filters)
+      case "jwat" => new JwatPartitionReader(conf, file, options, readDataSchema, filters)
+      case name => throw new UnsupportedOperationException(s"Parser '$name' not supported")
+    }
+
     new PartitionReaderWithPartitionValues(fileReader, readDataSchema,
       partitionSchema, file.partitionValues)
   }

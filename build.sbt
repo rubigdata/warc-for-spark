@@ -3,7 +3,7 @@ val hadoopV     = "3.4.1"
 
 name            := "warc-for-spark"
 organization    := "org.rubigdata"
-version         := "0.2.0"
+version         := "0.3.0"
 scalaVersion    := "2.12.10"
 
 publishTo := Some("GitHub rubigdata Apache Maven Packages" at "https://maven.pkg.github.com/rubigdata/warc-for-spark")
@@ -20,4 +20,5 @@ libraryDependencies ++= Seq(
   "org.apache.spark"     %% "spark-sql"        % sparkV,
   "org.apache.hadoop"    %  "hadoop-client"    % hadoopV,
   "org.netpreserve"      % "jwarc"             % "0.31.1",
+  "org.jwat"             % "jwat-warc"         % "1.2.1",
 )

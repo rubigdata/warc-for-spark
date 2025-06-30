@@ -1,45 +1,35 @@
 package org.rubigdata.warc
 
-import org.apache.hadoop.io.IOUtils
+import org.apache.commons.io.IOUtils
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, ArrayData}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.unsafe.types.UTF8String
-import org.netpreserve.jwarc._
+import org.jwat.common.HeaderLine
+import org.jwat.warc.{WarcRecord => JwatRecord}
+import org.netpreserve.jwarc.{MessageHeaders, WarcResponse, WarcTargetRecord, WarcRecord => JwarcRecord}
 
-import java.io.DataInputStream
 import java.sql.Timestamp
-import java.time.Instant
-import scala.collection.JavaConverters._
+import java.time.{Instant, ZoneOffset}
 import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConverters._
 import scala.util.Try
 
-case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
-
+abstract class WarcRow(options: WarcOptions) {
   import WarcRow._
 
-  private lazy val warcId = warcRecord.id().toString
-  private lazy val warcType = warcRecord.`type`()
-  private lazy val warcTargetUri = warcRecord match {
-    case r: WarcTargetRecord => r.target()
-    case _ => null
-  }
-  private lazy val warcDate = warcRecord.date()
-  private lazy val warcContentType = parseContentType(warcRecord)
-  private lazy val warcHeaders = readHeaders(warcRecord.headers())
-  private lazy val warcBody = readBody(warcRecord.body())
-  private lazy val httpContentType = warcRecord match {
-    case r: WarcResponse => parseContentType(r.http())
-    case _ => null
-  }
-  private lazy val httpHeaders = warcRecord match {
-    case r: WarcResponse => readHeaders(r.http().headers())
-    case _ => null
-  }
-  private lazy val httpBody = warcRecord match {
-    case r: WarcResponse => readBody(r.http().body())
-    case _ => null
-  }
+  def warcId: String
+  def warcType: String
+  def warcTargetUri: String
+  def warcDate: Instant
+  def warcContentType: String
+  def warcHeaders: Map[String, List[String]]
+  def warcBody: Array[Byte]
+  def httpContentType: String
+  def httpHeaders: Map[String, List[String]]
+  def httpBody: Array[Byte]
+
+  def getDate: Timestamp = Timestamp.from(warcDate)
 
   def toInternalRow(schema: StructType): InternalRow = {
     InternalRow(schema.fieldNames.map(f => internalRepresentation(readField(f))): _*)
@@ -67,49 +57,26 @@ case class WarcRow(warcRecord: WarcRecord, options: WarcOptions) {
     }
   }
 
-  def getDate: Timestamp = Timestamp.from(warcDate)
-
   private def internalRepresentation(value: Any): Any = value match {
     case s: String => UTF8String.fromString(s)
     case b: Array[Byte] => UTF8String.fromBytes(b)
-    case m: Map[_, _] => parseRecordHeaders(m.asInstanceOf[Map[String, List[String]]])
+    case m: Map[_, _] => encodeRecordHeaders(m.asInstanceOf[Map[String, List[String]]])
     case i: Instant => i.toEpochMilli * 1000L
     case _ => value
   }
 
-  private def parseContentType(message: Message): String = {
-    if (options.rawContentTypes) {
-      message.headers().first("Content-Type").orElse(null)
-    } else {
-      Try(message.contentType().toString).getOrElse(null)
-    }
-  }
-
-  private def readBody(body: MessageBody): Array[Byte] = {
-    IOUtils.readFullyToByteArray(new DataInputStream(body.stream()))
-  }
-
-  private def readHeaders(headers: MessageHeaders): Map[String, List[String]] = {
-    val parsedHeaders = headers.map().asScala.toMap.mapValues(_.asScala.toList)
-
-    if (options.headersToLowerCase) {
-      parsedHeaders.map{ case (k, v) => (k.toLowerCase, v) }
-    } else {
-      parsedHeaders
-    }
-  }
-
-  private def parseRecordHeaders(headers: Map[String, List[String]]): ArrayBasedMapData = {
+  private def encodeRecordHeaders(headers: Map[String, List[String]]): ArrayBasedMapData = {
     val keys = new ListBuffer[UTF8String]()
     val values = new ListBuffer[ArrayData]()
 
     headers.foreach{ case (key, value) =>
-      keys += UTF8String.fromString(key)
+      keys += UTF8String.fromString(if (options.headersToLowerCase) key.toLowerCase else key)
       values += ArrayData.toArrayData(value.map(UTF8String.fromString).toArray)
     }
 
     new ArrayBasedMapData(ArrayData.toArrayData(keys.toArray), ArrayData.toArrayData(values.toArray))
   }
+
 }
 
 object WarcRow {
@@ -126,3 +93,52 @@ object WarcRow {
 
   val STRING_FIELDS: Seq[String] = Seq(WARC_ID, WARC_TYPE, WARC_TARGET_URI, WARC_CONTENT_TYPE, HTTP_CONTENT_TYPE)
 }
+
+case class JwarcRow(warcRecord: JwarcRecord, options: WarcOptions) extends WarcRow(options) {
+
+  lazy val warcId: String = warcRecord.id().toString
+  lazy val warcType: String = warcRecord.`type`()
+  lazy val warcTargetUri: String = warcRecord match {
+    case r: WarcTargetRecord => r.target()
+    case _ => null
+  }
+  lazy val warcDate: Instant = warcRecord.date()
+  lazy val warcContentType: String = Try(warcRecord.contentType().toString).getOrElse(null)
+  lazy val warcHeaders: Map[String, List[String]] = readHeaders(warcRecord.headers())
+  lazy val warcBody: Array[Byte] = IOUtils.toByteArray(warcRecord.body().stream())
+  lazy val httpContentType: String = warcRecord match {
+    case r: WarcResponse => Try(r.http().contentType().toString).getOrElse(null)
+    case _ => null
+  }
+  lazy val httpHeaders: Map[String, List[String]] = warcRecord match {
+    case r: WarcResponse => readHeaders(r.http().headers())
+    case _ => null
+  }
+  lazy val httpBody: Array[Byte] = warcRecord match {
+    case r: WarcResponse => IOUtils.toByteArray(r.http().body().stream())
+    case _ => null
+  }
+
+  private def readHeaders(headers: MessageHeaders): Map[String, List[String]] = {
+    headers.map().asScala.toMap.mapValues(_.asScala.toList)
+  }
+}
+
+case class JwatRow(warcRecord: JwatRecord, options: WarcOptions) extends WarcRow(options) {
+
+  lazy val warcId: String = warcRecord.header.warcRecordIdStr.stripPrefix("<").stripSuffix(">")
+  lazy val warcType: String = warcRecord.header.warcTypeStr
+  lazy val warcTargetUri: String = warcRecord.header.warcTargetUriStr
+  lazy val warcDate: Instant = Option(warcRecord.header.warcDate).map(_.ldt.toInstant(ZoneOffset.UTC)).orNull
+  lazy val warcContentType: String = warcRecord.header.contentType.toString
+  lazy val warcHeaders: Map[String, List[String]] = readHeaders(warcRecord.header.getHeaderList.asScala.toList)
+  lazy val warcBody: Array[Byte] = IOUtils.toByteArray(warcRecord.getPayload.getInputStreamComplete)
+  lazy val httpContentType: String = Option(warcRecord.getHttpHeader).map(_.contentType).orNull
+  lazy val httpHeaders: Map[String, List[String]] = Option(warcRecord.getHttpHeader).map(h => readHeaders(h.getHeaderList.asScala.toList)).orNull
+  lazy val httpBody: Array[Byte] = Option(warcRecord.getHttpHeader).map(_ => IOUtils.toByteArray(warcRecord.getPayloadContent)).orNull
+
+  private def readHeaders(headers: List[HeaderLine]): Map[String, List[String]] = {
+    headers.groupBy(_.name).mapValues(_.map(_.value))
+  }
+}
+

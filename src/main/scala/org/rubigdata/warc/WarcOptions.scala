@@ -31,9 +31,9 @@ class WarcOptions(@transient val parameters: CaseInsensitiveMap[String])
   val headersToLowerCase: Boolean = getBool(HEADERS_TO_LOWER_CASE)
   val parseHTTP: Boolean = getBool(PARSE_HTTP)
   val lenient: Boolean = getBool(LENIENT)
-  val rawContentTypes: Boolean = getBool(RAW_CONTENT_TYPES)
   val splitGzip: Boolean = getBool(SPLIT_GZIP)
 
+  val parser: String = parameters.getOrElse("parser", "jwarc")
 }
 
 object WarcOptions extends DataSourceOptions {
